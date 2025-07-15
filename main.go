@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/subtle"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,12 +12,42 @@ import (
 	"strings"
 )
 
-func main() {
-	http.HandleFunc("/debug/pprof/profile", handlePprof)
-	http.HandleFunc("/debug/folded/profile", handleFolded)
+var (
+	port     = flag.String("port", "8080", "Port to listen on")
+	password = flag.String("password", "", "Password for basic authentication (optional)")
+)
 
-	log.Println("Listening on :8080...")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+func main() {
+	flag.Parse()
+
+	// Set up handlers with optional authentication
+	if *password != "" {
+		http.HandleFunc("/debug/pprof/profile", basicAuth(handlePprof, *password))
+		http.HandleFunc("/debug/folded/profile", basicAuth(handleFolded, *password))
+	} else {
+		http.HandleFunc("/debug/pprof/profile", handlePprof)
+		http.HandleFunc("/debug/folded/profile", handleFolded)
+	}
+
+	addr := ":" + *port
+	log.Printf("Listening on %s...", addr)
+	if *password != "" {
+		log.Println("Basic authentication enabled")
+	}
+	log.Fatal(http.ListenAndServe(addr, nil))
+}
+
+// basicAuth wraps a handler with basic authentication
+func basicAuth(handler http.HandlerFunc, password string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+		if !ok || user != "admin" || subtle.ConstantTimeCompare([]byte(pass), []byte(password)) != 1 {
+			w.Header().Set("WWW-Authenticate", `Basic realm="bcc-exporter"`)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		handler(w, r)
+	}
 }
 
 func handlePprof(w http.ResponseWriter, r *http.Request) {

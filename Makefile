@@ -26,6 +26,16 @@ clean:
 run: build
 	sudo ./$(BINARY_NAME)
 
+# Run with custom port
+.PHONY: run-port
+run-port: build
+	sudo ./$(BINARY_NAME) -port $(PORT)
+
+# Run with authentication
+.PHONY: run-auth
+run-auth: build
+	sudo ./$(BINARY_NAME) -password $(PASSWORD)
+
 # Format Go code
 .PHONY: fmt
 fmt:
@@ -65,6 +75,8 @@ help:
 	@echo "Available targets:"
 	@echo "  build      - Build the bcc-exporter binary"
 	@echo "  run        - Build and run the application (requires sudo)"
+	@echo "  run-port   - Build and run on custom port (usage: make run-port PORT=9090)"
+	@echo "  run-auth   - Build and run with authentication (usage: make run-auth PASSWORD=secret)"
 	@echo "  clean      - Remove build artifacts"
 	@echo "  fmt        - Format Go code"
 	@echo "  vet        - Run go vet"

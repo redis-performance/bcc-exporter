@@ -59,7 +59,33 @@ go build -o bcc-exporter
 sudo ./bcc-exporter
 ```
 
-- The server listens on port :8080 by default.
+### Command Line Options
+
+- `-port`: Specify the port to listen on (default: 8080)
+- `-password`: Enable basic authentication with the specified password (optional)
+
+**Examples:**
+
+```bash
+# Run on default port 8080
+sudo ./bcc-exporter
+
+# Run on custom port
+sudo ./bcc-exporter -port 9090
+
+# Run with basic authentication
+sudo ./bcc-exporter -password mysecretpassword
+
+# Run on custom port with authentication
+sudo ./bcc-exporter -port 9090 -password mysecretpassword
+```
+
+When authentication is enabled, use username `admin` with your specified password:
+
+```bash
+# Example with authentication
+curl -u admin:mysecretpassword "http://localhost:8080/debug/folded/profile?pid=`pgrep redis`&seconds=10"
+```
 
 ## 🔥 Generate a Flamegraph
 

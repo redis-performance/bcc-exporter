@@ -1,13 +1,13 @@
 # bcc-exporter
 
-**bcc-exporter** is a minimal HTTP server that wraps BCC tools like `profile-bpfcc` to expose Linux CPU profiling data over HTTP. It provides endpoints compatible with `pprof` and flamegraph tools, making it easy to collect and visualize profiling data from running processes.
+**bcc-exporter** is a minimal HTTP server that provides Linux CPU profiling data over HTTP. It supports both modern `perf` + `pprof` workflows for binary pprof output and traditional BCC tools for folded stack traces, making it easy to collect and visualize profiling data from running processes.
 
 ## ✨ Features
 
-- HTTP endpoints to trigger BCC profiling
-- Folded stack output for use with Flamegraph
-- Compatible with `go tool pprof` workflows
-- Lightweight, no dependencies beyond Go and BCC
+- HTTP endpoints to trigger CPU profiling
+- **Binary pprof format** using `perf record` + `pprof` conversion (fully compatible with `go tool pprof`)
+- **Folded stack output** using BCC tools for use with Flamegraph
+
 
 ## 🚀 Endpoints
 
@@ -27,26 +27,42 @@ curl "http://localhost:8080/debug/folded/profile?pid=`pgrep redis`&seconds=10&te
 
 ### `/debug/pprof/profile`
 
-Returns folded stack traces with a Content-Type: application/octet-stream header (mimicking pprof endpoint structure). Can be adapted to binary pprof format later.
+Returns **binary pprof data** (.pb.gz format) using `perf record` + `pprof` conversion. Fully compatible with `go tool pprof` and other pprof-based tools.
 
 **Example:**
 ```bash
-curl -o profile.txt "http://localhost:8080/debug/pprof/profile?pid=`pgrep redis`&seconds=10"
+# Download binary pprof file
+curl -o profile.pb.gz "http://localhost:8080/debug/pprof/profile?pid=1234&seconds=30"
+
+# Use directly with go tool pprof
+go tool pprof http://localhost:8080/debug/pprof/profile?pid=1234&seconds=30
 ```
 
 **Test Mode:**
 ```bash
-curl -o profile.txt "http://localhost:8080/debug/pprof/profile?pid=`pgrep redis`&seconds=10&test=true"
+curl -o profile.pb.gz "http://localhost:8080/debug/pprof/profile?pid=1234&seconds=10&test=true"
 ```
 
 ## 🔧 Requirements
 
+### For pprof endpoint (binary format):
+- Linux with perf support (kernel 3.7+ recommended)
+- `perf` tools installed
+- `pprof` tool installed
+- Appropriate permissions for perf profiling
+
+### For folded endpoint (text format):
 - Linux with BPF support (kernel 4.9+ recommended)
 - bpfcc-tools installed (profile-bpfcc must be available)
 - sudo access or appropriate capabilities to run BCC tools
 
 **Install dependencies:**
 ```bash
+# For perf + pprof (recommended)
+sudo apt-get install linux-perf
+go install github.com/google/pprof@latest
+
+# For BCC tools (folded format)
 sudo apt-get install bpfcc-tools linux-headers-$(uname -r)
 ```
 
@@ -87,6 +103,25 @@ When authentication is enabled, use username `admin` with your specified passwor
 curl -u admin:mysecretpassword "http://localhost:8080/debug/folded/profile?pid=`pgrep redis`&seconds=10"
 ```
 
+## 📊 Using with go tool pprof
+
+The `/debug/pprof/profile` endpoint generates binary pprof files that work seamlessly with `go tool pprof`:
+
+```bash
+# Interactive analysis
+go tool pprof http://localhost:8080/debug/pprof/profile?pid=1234&seconds=30
+
+# Generate web UI
+go tool pprof -http=:8081 http://localhost:8080/debug/pprof/profile?pid=1234&seconds=30
+
+# Generate flamegraph
+go tool pprof -http=:8081 -flame http://localhost:8080/debug/pprof/profile?pid=1234&seconds=30
+
+# Save profile for later analysis
+curl -o myapp.pb.gz "http://localhost:8080/debug/pprof/profile?pid=1234&seconds=30"
+go tool pprof myapp.pb.gz
+```
+
 ## 🔥 Generate a Flamegraph
 
 Use Brendan Gregg's Flamegraph tools to generate visual output from folded stack traces:
@@ -105,12 +140,58 @@ Open `flame.svg` in a browser to explore the flamegraph.
 
 Planned or potential future extensions:
 
-- Convert folded format to binary .pb.gz for go tool pprof compatibility
 - Add wrappers for additional BCC tools (e.g., offcputime-bpfcc, tcplife-bpfcc)
+- Add memory profiling support
 - Add Prometheus-compatible metrics endpoints
 - Dockerfile and systemd service support
+- Support for custom perf events and sampling frequencies
 
 ## 🔍 Troubleshooting
+
+### Perf Permission Issues
+
+If you encounter "Permission denied" errors with the pprof endpoint:
+
+```
+perf record failed: Permission denied
+```
+
+This is usually due to perf security restrictions. Solutions:
+
+1. **Run with sudo** (simplest):
+   ```bash
+   sudo ./bcc-exporter
+   ```
+
+2. **Adjust perf_event_paranoid** (system-wide):
+   ```bash
+   # Temporarily (until reboot)
+   echo 1 | sudo tee /proc/sys/kernel/perf_event_paranoid
+
+   # Permanently
+   echo 'kernel.perf_event_paranoid = 1' | sudo tee -a /etc/sysctl.conf
+   ```
+
+3. **Add CAP_SYS_ADMIN capability**:
+   ```bash
+   sudo setcap cap_sys_admin+ep ./bcc-exporter
+   ```
+
+### Missing Tools
+
+If you get "tool not found" errors:
+
+```bash
+# Install perf tools
+sudo apt-get install linux-perf
+
+# Install pprof
+go install github.com/google/pprof@latest
+
+# Verify installation
+perf --version
+pprof --help
+```
 
 ### BCC Library Issues
 

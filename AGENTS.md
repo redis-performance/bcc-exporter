@@ -47,7 +47,7 @@ exercise the HTTP layer without kernel access.
 
 ## Branch naming
 
-Same as human contributors: `<type>/<short-description>` (e.g. `fix/off-by-one-in-pipeline`).
+Same as human contributors: `<type>/<short-description>` (e.g. `feat/add-pprof-heap-endpoint`).
 
 ## Coding standards
 

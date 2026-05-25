@@ -54,13 +54,14 @@ sudo ./bcc-exporter -password mysecretpassword
 
 Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
 
-Example: `feat/add-pipeline-mode`
+Example: `feat/add-pprof-heap-endpoint`
 
 ## Coding standards
 
 - Keep changes focused; one logical change per PR.
 - Follow the conventions already present in the codebase (formatting, naming, error handling).
 - No dead code, no commented-out blocks.
+- The module has zero external Go dependencies by design; do not add any.
 
 ## Submitting changes
 
